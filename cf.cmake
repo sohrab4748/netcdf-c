@@ -6,16 +6,11 @@ DAP=1
 VS=yes
 #CYGWIN=yes
 
-
 if test "x$VS" = x ; then
 #CC=mpicc
 CC=gcc
-else
-VSSTRING="Visual Studio 12 2013 Win64"
-G="-G\"$VSSTRING\""
-fi
-
 export CC
+fi
 
 FLAGS="-DCMAKE_PREFIX_PATH=c:/tools/nccmake"
 
@@ -33,6 +28,6 @@ rm -fr build
 mkdir build
 cd build
 
-cmake -GVisual\ Studio\ 14\ 2015 $FLAGS ${ZLIB} ${HDF5} ${CURL} ..
+cmake $FLAGS ..
 #cmake --build .
-CTEST_OUTPUT_ON_FAILURE=1 cmake --build . --target test
+CTEST_OUTPUT_ON_FAILURE=1 cmake --build . --target RUN_TESTS

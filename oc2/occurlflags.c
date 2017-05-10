@@ -6,11 +6,6 @@
 #include "ocinternal.h"
 #include "ocdebug.h"
 
-static int nflags = 0;
-static long maxflag = -1;
-static struct OCCURLFLAG* nameindices[26]; /* for radix access */
-static struct OCCURLFLAG** flagindices = NULL; /* for radix access */
-
 /* Define supported curl flags */
 
 static struct OCCURLFLAG oc_curlflags[] = {
@@ -40,7 +35,7 @@ static struct OCCURLFLAG oc_curlflags[] = {
 {"CURLOPT_USERPWD",CURLOPT_USERPWD,10005,CF_STRING},
 {"CURLOPT_VERBOSE",CURLOPT_VERBOSE,41,CF_LONG},
 {"CURLOPT_USE_SSL",CURLOPT_USE_SSL,119,CF_LONG},
-{NULL,0}
+{NULL,0,0,0}
 };
 
 #if 0
@@ -236,7 +231,6 @@ static struct OCCURLFLAG oc_allcurlflags[] = {
 struct OCCURLFLAG*
 occurlflagsall(void)
 {
-    if(nflags == 0) initialize();
     return oc_allcurlflags;
 }
 
@@ -249,38 +243,9 @@ static int touppercase(int c)
     return c;
 }
 
-static void
-initialize(void)
-{
-  struct OCCURLFLAG* p;
-  size_t len = 0;
-
-  if(nflags == 0) {  /* initialize */
-	maxflag = -1;
-    for(p=oc_curlflags;p->name;p++) {
-      int c;
-      nflags++; /* count number of flags */
-      if(p->flag > maxflag) maxflag = p->flag;
-      /* construct alphabetic radix nameindices */
-      c = p->name[0];
-      OCASSERT(c >= 'A' && c <= 'Z');
-      if(nameindices[c] == NULL)
-		nameindices[c] = p;
-	}
-
-
-    len = maxflag;
-    if(maxflag == -1) len += 2; else len += 1;
-    flagindices = (struct OCCURLFLAG**)calloc(1,len*sizeof(struct OCCURLFLAG*));
-    for(p=oc_curlflags;p->name;p++)
-      flagindices[p->flag] = p;
-  }
-}
-
 struct OCCURLFLAG*
 occurlflags(void)
 {
-    if(nflags == 0) initialize();
     return oc_curlflags;
 }
 
@@ -288,26 +253,9 @@ struct OCCURLFLAG*
 occurlflagbyname(const char* name)
 {
     struct OCCURLFLAG* f;
-    int c = name[0];
-    char flagname[4096];
-    const char* p;
-    char* q;
-
-    if(nflags == 0) initialize();
-    /* Force upper case */
-    for(p=name,q=flagname;*p;p++) {
-        int cc = touppercase(*p);
-        if(cc < 'A' || cc > 'Z') return NULL;
-        *q++ = cc;
-    }
-    *q = '\0';
-
-    if(nameindices[c] == NULL)
-	return NULL; /* no possible match */
-    for(f=nameindices[c];f->name;f++) {
-	int cmp = strcmp(name,f->name);
-	if(cmp > 0) break; /* We assume sorted */
-	if(cmp == 0) return f;
+    if(name == NULL) return NULL;
+    for(f=oc_curlflags;f->name;f++) {
+	if(strcasecmp(name,f->name) == 0) return f;
     }
     return NULL;
 }
@@ -315,8 +263,9 @@ occurlflagbyname(const char* name)
 struct OCCURLFLAG*
 occurlflagbyflag(int flag)
 {
-    if(nflags == 0) initialize();
-    if(flag >= 0 || flag <= maxflag)
-	return flagindices[flag];
+    struct OCCURLFLAG* f;
+    for(f=oc_curlflags;f->name;f++) {
+	if(f->flag == flag) return f;
+    }
     return NULL;
 }

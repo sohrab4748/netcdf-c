@@ -109,12 +109,12 @@ NC_interpret_magic_number(char* magic, int* model, int* version)
     /* Use the complete magic number string for HDF5 */
     if(memcmp(magic,HDF5_SIGNATURE,sizeof(HDF5_SIGNATURE))==0) {
 	*model = NC_FORMATX_NC4;
-	*version = 5;
+	*version = 5; /* redundant */
 #ifdef USE_HDF4
     } else if(magic[0] == '\016' && magic[1] == '\003'
               && magic[2] == '\023' && magic[3] == '\001') {
-	*model = NC_FORMATX_NC4;
-	*version = 4;
+	*model = NC_FORMATX_NC_HDF4;
+	*version = 4; /* redundant */
 #endif
     } else
 #endif
@@ -200,7 +200,7 @@ next:
             if((status = readmagic(&file,pos,magic)) != NC_NOERR)
 	        {status = NC_ENOTNC; goto done; }
             NC_interpret_magic_number(magic,model,version);
-            if(*model == NC_FORMATX_NC4 && *version == 5) break;
+            if(*model == NC_FORMATX_NC4) break;
 	    /* double and try again */
 	    pos = 2*pos;
         }
@@ -1744,7 +1744,7 @@ NC_create(const char *path0, int cmode, size_t initialsz,
    }
 
    /* Create the NC* instance and insert its dispatcher */
-   stat = new_NC(dispatcher,path,cmode,&ncp);
+   stat = new_NC(dispatcher,path,cmode,model,&ncp);
    nullfree(path); path = NULL; /* no longer needed */
 
    if(stat) return stat;
@@ -1858,7 +1858,7 @@ NC_open(const char *path0, int cmode,
    }
 
    /* Force flag consistentcy */
-   if(model == NC_FORMATX_NC4 || model == NC_FORMATX_DAP4)
+   if(model == NC_FORMATX_NC4 || model == NC_FORMATX_NC_HDF4 || model == NC_FORMATX_DAP4)
       cmode |= NC_NETCDF4;
    else if(model == NC_FORMATX_DAP2) {
       cmode &= ~NC_NETCDF4;
@@ -1912,7 +1912,7 @@ NC_open(const char *path0, int cmode,
    else
 #endif
 #if defined(USE_NETCDF4)
-   if(model == (NC_FORMATX_NC4))
+   if(model == (NC_FORMATX_NC4) || model == (NC_FORMATX_NC_HDF4))
 	dispatcher = NC4_dispatch_table;
    else
 #endif
@@ -1927,7 +1927,7 @@ havetable:
 	return NC_ENOTNC;
 
    /* Create the NC* instance and insert its dispatcher */
-   stat = new_NC(dispatcher,path,cmode,&ncp);
+   stat = new_NC(dispatcher,path,cmode,model,&ncp);
    nullfree(path); path = NULL; /* no longer need path */
    if(stat) return stat;
 

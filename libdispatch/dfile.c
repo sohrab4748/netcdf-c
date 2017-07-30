@@ -169,7 +169,7 @@ NC_check_file_type(const char *path, int flags, void *parameters,
 #ifdef USE_PARALLEL
     /* for parallel, use the MPI functions instead (why?) */
     if (use_parallel) {
-	file.useparallel = use_parallel;
+	file.use_parallel = use_parallel;
 	goto next;
     }
 #endif /* USE_PARALLEL */
@@ -2072,7 +2072,7 @@ printmagic("XXX: readmagic",magic,file);
     if (file->use_parallel) {
 	MPI_Status mstatus;
 	int retval;
-	MPI_offset offset;
+	MPI_Offset offset;
 	offset = offset;
 	if((retval = MPI_File_seek(file->fh, offset, MPI_SEEK_SET)) != MPI_SUCCESS)
 	    {status = NC_EPARINIT; goto done;}	

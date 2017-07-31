@@ -2073,7 +2073,7 @@ printmagic("XXX: readmagic",magic,file);
 	MPI_Status mstatus;
 	int retval;
 	MPI_Offset offset;
-	offset = offset;
+	offset = pos;
 	if((retval = MPI_File_seek(file->fh, offset, MPI_SEEK_SET)) != MPI_SUCCESS)
 	    {status = NC_EPARINIT; goto done;}	
 	if((retval = MPI_File_read(file->fh, magic, MAGIC_NUMBER_LEN, MPI_CHAR,

@@ -27,6 +27,7 @@ typedef struct NC {
 	void* dispatchdata; /*per-'file' data; points to e.g. NC3_INFO data*/
 	char* path;
 	int   mode; /* as provided to nc_open/nc_create */
+        int   model; /* as determined by libdispatch/dfile.c */
 #ifdef USE_REFCOUNT
 	int   refcount; /* To enable multiple name-based opens */
 #endif
@@ -80,7 +81,7 @@ extern int iterate_NCList(int i,NC**); /* Walk from 0 ...; ERANGE return => stop
 
 /* Defined in nc.c */
 extern void free_NC(NC*);
-extern int new_NC(struct NC_Dispatch*, const char*, int, NC**);
+extern int new_NC(struct NC_Dispatch*, const char*, int, int, NC**);
 
 /* Defined in nc.c */
 extern int ncdebug;

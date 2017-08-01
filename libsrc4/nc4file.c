@@ -287,87 +287,6 @@ nc4typelen(nc_type type)
    return -1;
 }
 
-
-#if 0
-/* Use NC_check_file_type in libdispatch/dfile.c */
-/* Given a filename, check to see if it is a HDF5 file. */
-static int
-nc_check_for_hdf(const char *path, int flags, void* parameters, int *hdf_file)
-{
-   char blob[MAGIC_NUMBER_LEN];
-#ifdef USE_PARALLEL4
-   int use_parallel = ((flags & NC_MPIIO) == NC_MPIIO);
-   NC_MPI_INFO* mpiinfo = (NC_MPI_INFO*)parameters;
-   MPI_Comm comm = MPI_COMM_WORLD;
-   MPI_Info info = MPI_INFO_NULL;
-#endif
-   int inmemory = ((flags & NC_INMEMORY) == NC_INMEMORY);
-#ifdef USE_DISKLESS
-   NC_MEM_INFO* meminfo = (NC_MEM_INFO*)parameters;
-#endif
-
-#ifdef USE_PARALLEL4
-   if(use_parallel) {
-       comm = mpiinfo->comm;
-       info = mpiinfo->info;
-   }
-#endif
-
-   assert(hdf_file);
-   LOG((3, "%s: path %s", __func__, path));
-
-   /* HDF5 function handles possible user block at beginning of file */
-   if(!inmemory && H5Fis_hdf5(path))
-   {
-       *hdf_file = NC_HDF5_FILE;
-   } else {
-
-/* Get the 4-byte blob from the beginning of the file. Don't use posix
- * for parallel, use the MPI functions instead. */
-#ifdef USE_PARALLEL4
-       if (!inmemory && use_parallel)
-       {
-	   MPI_File fh;
-	   MPI_Status status;
-	   int retval;
-	   if ((retval = MPI_File_open(comm, (char *)path, MPI_MODE_RDONLY,
-				       info, &fh)) != MPI_SUCCESS)
-	       return NC_EPARINIT;
-	   if ((retval = MPI_File_read(fh, blob, MAGIC_NUMBER_LEN, MPI_CHAR,
-				       &status)) != MPI_SUCCESS)
-	       return NC_EPARINIT;
-	   if ((retval = MPI_File_close(&fh)) != MPI_SUCCESS)
-	       return NC_EPARINIT;
-       }
-       else
-#endif /* USE_PARALLEL4 */
-       if(!inmemory) {
-	   FILE *fp;
-	   if (!(fp = fopen(path, "r")) ||
-	       fread(blob, MAGIC_NUMBER_LEN, 1, fp) != 1) {
-
-	     if(fp) fclose(fp);
-	     return errno;
-	   }
-	   fclose(fp);
-       } else { /*inmemory*/
-	  if(meminfo->size < MAGIC_NUMBER_LEN)
-	    return NC_ENOTNC;
-	  memcpy(blob,meminfo->memory,MAGIC_NUMBER_LEN);
-       }
-
-       /* Check for HDF4. */
-       if (memcmp(blob, "\016\003\023\001", 4)==0)
-	   *hdf_file = NC_HDF4_FILE;
-       else if (memcmp(blob, "HDF", 3)==0)
-	   *hdf_file = NC_HDF5_FILE;
-       else
-	   *hdf_file = 0;
-   }
-   return NC_NOERR;
-}
-#endif
-
 /* Create a HDF5/netcdf-4 file. */
 
 static int
@@ -2867,17 +2786,10 @@ NC4_open(const char *path, int mode, int basepe, size_t *chunksizehintp,
 #endif /* USE_PARALLEL_POSIX */
 
    /* Figure out if this is a hdf4 or hdf5 file. */
-   /* Use NC_check_file_type in libdispatch/dfile.c */
-   {
-	int model = 0;
-	int version = 0;
-        if((res=NC_check_file_type(path,use_parallel,parameters,&model,&version)))
-	    return res;
-	if(model == NC_FORMATX_NC4 && version == 5)
-	    is_hdf5_file = 1;
-	else if(model == NC_FORMATX_NC4 && version == 4)
-	    is_hdf4_file = 1;
-    }
+   if(nc_file->model == NC_FORMATX_NC4)
+	is_hdf5_file = 1;
+   else if(nc_file->model == NC_FORMATX_NC_HDF4)
+	is_hdf4_file = 1;
    /* Depending on the type of file, open it. */
    nc_file->int_ncid = nc_file->ext_ncid;
    if (is_hdf5_file)
@@ -2889,7 +2801,7 @@ NC4_open(const char *path, int mode, int basepe, size_t *chunksizehintp,
        res = nc4_open_hdf4_file(path, mode, nc_file);
 #endif /* USE_HDF4 */
    else
-       assert(0); /* should never happen */
+       res = NC_ENOTNC;
 done:
    return res;
 }

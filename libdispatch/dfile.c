@@ -94,14 +94,17 @@ of the interfaces for these operations.
   @param[in] magic Pointer to a character array with the magic number block.
   @param[out] model Pointer to an integer to hold the corresponding netCDF type.
   @param[out] version Pointer to an integer to hold the corresponding netCDF version.
+  @returns NC_NOERR if a legitimate file type found
+  @returns NC_ENOTNC otherwise
 
 \internal
 \ingroup datasets
 
 */
-static void
+static int
 NC_interpret_magic_number(char* magic, int* model, int* version)
 {
+    int status = NC_NOERR;
     /* Look at the magic number */
     *model = 0;
     *version = 0;
@@ -145,7 +148,7 @@ NC_interpret_magic_number(char* magic, int* model, int* version)
      goto done;
 
 done:
-     return;
+     return status;
 }
 
 /*!
@@ -199,8 +202,9 @@ next:
 	goto done;
     }
     /* Look at the magic number */
-    NC_interpret_magic_number(magic,model,version);
-    if(*model != 0) goto done; /* found something */
+    if(NC_interpret_magic_number(magic,model,version) == NC_NOERR
+       && *model != 0)
+        goto done; /* found something */
 
     /* Remaining case is to search forward at starting at 512
        and doubling to see if we have HDF5 magic number */

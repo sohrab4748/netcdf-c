@@ -110,28 +110,40 @@ NC_interpret_magic_number(char* magic, int* model, int* version)
     if(memcmp(magic,HDF5_SIGNATURE,sizeof(HDF5_SIGNATURE))==0) {
 	*model = NC_FORMATX_NC4;
 	*version = 5; /* redundant */
-#ifdef USE_HDF4
-    } else if(magic[0] == '\016' && magic[1] == '\003'
+	goto done;
+    }
+#endif
+#if defined(USE_NETCDF4) && defined(USE_HDF4)
+    if(magic[0] == '\016' && magic[1] == '\003'
               && magic[2] == '\023' && magic[3] == '\001') {
 	*model = NC_FORMATX_NC_HDF4;
 	*version = 4; /* redundant */
-#endif
-    } else
+	goto done;
+    }
 #endif
     if(magic[0] == 'C' && magic[1] == 'D' && magic[2] == 'F') {
         if(magic[3] == '\001') {
             *version = 1; /* netcdf classic version 1 */
 	    *model = NC_FORMATX_NC3;
-         } else if(magic[3] == '\002') {
+	    goto done;	    
+	}
+        if(magic[3] == '\002') {
             *version = 2; /* netcdf classic version 2 */
 	    *model = NC_FORMATX_NC3;
-         } else if(magic[3] == '\005') {
-            *version = 5; /* cdf5 (including pnetcdf) file */
-	    *model = NC_FORMATX_NC3;
-	 } else
-	    goto done;	
-     } else
-	goto done;
+	    goto done;
+        }
+#ifdef USE_CDF5
+        if(magic[3] == '\005') {
+          *version = 5; /* cdf5 (including pnetcdf) file */
+	  *model = NC_FORMATX_NC3;
+	  goto done;
+	}
+#endif
+     }
+     /* No match  */
+     status = NC_ENOTNC;
+     goto done;
+
 done:
      return;
 }
@@ -159,10 +171,10 @@ NC_check_file_type(const char *path, int flags, void *parameters,
     memset((void*)&file,0,sizeof(file));   
     file.path = path; /* do not free */
     file.parameters = parameters;
+    if(inmemory && parameters == NULL)
+	{status = NC_EDISKLESS; goto done;}
     if(inmemory) {
-	if(parameters == NULL)
-	    {status = NC_EDISKLESS; goto done;}
-	file.inmemory = inmemory;
+        file.inmemory = inmemory;
 	goto next;
     }
     /* presumably a real file */
@@ -1589,11 +1601,10 @@ Create a file, calling the appropriate dispatch create call.
 
 For create, we have the following pieces of information to use to
 determine the dispatch table:
-- table specified by override
 - path
 - cmode
 
-\param path The file name of the new netCDF dataset.
+\param path0 The file name of the new netCDF dataset.
 
 \param cmode The creation mode flag, the same as in nc_create().
 
@@ -1640,6 +1651,10 @@ NC_create(const char *path0, int cmode, size_t initialsz,
       if ((stat = nc_initialize()))
 	 return stat;
    }
+
+#ifndef USE_DISKLESS
+   cmode &= (~ NC_DISKLESS); /* Force off */
+#endif
 
 #ifdef WINPATH
    /* Need to do path conversion */
@@ -1696,11 +1711,13 @@ NC_create(const char *path0, int cmode, size_t initialsz,
 	    model = NC_FORMATX_NC4;
 	    break;
 #endif
+#ifdef USE_CDF5
 	 case NC_FORMAT_CDF5:
 	    xcmode |= NC_64BIT_DATA;
 	    model = NC_FORMATX_NC3;
 	    break;
-	 case NC_FORMAT_64BIT_OFFSET:
+#endif
+      case NC_FORMAT_64BIT_OFFSET:
 	    xcmode |= NC_64BIT_OFFSET;
 	    model = NC_FORMATX_NC3;
 	    break;
@@ -1792,8 +1809,8 @@ NC_open(const char *path0, int cmode,
    int stat = NC_NOERR;
    NC* ncp = NULL;
    NC_Dispatch* dispatcher = NULL;
-   int inmemory = ((cmode & NC_INMEMORY) == NC_INMEMORY);
-   int diskless = ((cmode & NC_DISKLESS) == NC_DISKLESS);
+   int inmemory = 0;
+   int diskless = 0;
    /* Need pieces of information for now to decide model*/
    int model = 0;
    int isurl = 0;
@@ -1811,6 +1828,16 @@ NC_open(const char *path0, int cmode,
       nothing if path is a 'file:...' url, so it will need to be
       repeated in protocol code: libdap2 and libdap4
     */
+
+#ifndef USE_DISKLESS
+   /* Clean up cmode */
+   cmode &= (~ NC_DISKLESS);
+#endif
+
+   inmemory = ((cmode & NC_INMEMORY) == NC_INMEMORY);
+   diskless = ((cmode & NC_DISKLESS) == NC_DISKLESS);
+
+
 #ifdef WINPATH
    path = NCpathcvt(path0);
 #else

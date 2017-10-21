@@ -502,6 +502,13 @@ main(
 
     /* Compute the k_flag (1st pass) using rules in the man page (ncgen.1).*/
 
+#ifndef USE_CDF5
+    if(k_flag == NC_FORMAT_CDF5) {
+      derror("Output format CDF5 requested, but netcdf was built without cdf5 support.");
+      return 0;
+    }
+#endif
+
 #ifndef USE_NETCDF4
     if(enhanced_flag) {
 	derror("CDL input is enhanced mode, but --disable-netcdf4 was specified during build");
@@ -510,7 +517,7 @@ main(
 #endif
 
     if(l_flag == L_JAVA || l_flag == L_F77) {
-        k_flag = 1;
+        k_flag = NC_FORMAT_CLASSIC;
 	if(enhanced_flag) {
 	    derror("Java or Fortran requires classic model CDL input");
 	    return 0;
@@ -521,12 +528,12 @@ main(
       k_flag = globalspecials._Format;
 
     if(cdf5_flag && !enhanced_flag && k_flag == 0)
-      k_flag = 5;
+      k_flag = NC_FORMAT_64BIT_DATA;
     if(enhanced_flag && k_flag == 0)
-      k_flag = 3;
+      k_flag = NC_FORMAT_NETCDF4;
 
-    if(enhanced_flag && k_flag != 3) {
-      if(enhanced_flag && k_flag != 3 && k_flag != 5) {
+    if(enhanced_flag && k_flag != NC_FORMAT_NETCDF4) {
+      if(enhanced_flag && k_flag != NC_FORMAT_NETCDF4 && k_flag != NC_FORMAT_64BIT_DATA) {
         derror("-k or _Format conflicts with enhanced CDL input");
         return 0;
       }
@@ -534,13 +541,13 @@ main(
 
     if(specials_flag > 0 && k_flag == 0)
 #ifdef USE_NETCDF4
-	k_flag = 3;
+	k_flag = NC_FORMAT_NETCDF4;
 #else
-	k_flag = 1;
+	k_flag = NC_FORMAT_CLASSIC;
 #endif
 
     if(k_flag == 0)
-	k_flag = 1;
+	k_flag = NC_FORMAT_CLASSIC;
 
     /* Figure out usingclassic */
     switch (k_flag) {
